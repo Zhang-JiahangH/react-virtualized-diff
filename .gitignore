@@ -3,4 +3,3 @@ dist
 coverage
 .vite
 .DS_Store
-pnpm-lock.yaml
