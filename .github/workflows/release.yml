@@ -24,6 +24,7 @@ jobs:
           node-version: 20.11.1
           registry-url: 'https://registry.npmjs.org/'
 
+      - run: pnpm install
       - run: pnpm build
       - run: pnpm test
       # - run: pnpm --filter react-virtualized-diff publish --access public --no-git-checks
