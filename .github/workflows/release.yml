@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*.*.*'
 
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -27,6 +31,4 @@ jobs:
       - run: pnpm install
       - run: pnpm build
       - run: pnpm test
-      # - run: pnpm --filter react-virtualized-diff publish --access public --no-git-checks
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: pnpm --filter react-virtualized-diff publish --access public
