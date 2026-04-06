@@ -117,21 +117,6 @@ See [CHANGELOG.md](./CHANGELOG.md) for tracked releases and supported capabiliti
 
 ---
 
-## Automated versioning & release
-
-This repository now uses **Release Please** to automate versioning and changelog generation.
-
-- Merge commits to `main` using Conventional Commits (`fix:`, `feat:`, `feat!:` etc.)
-- Release Please opens/updates a release PR automatically
-- Merging that PR creates a `vX.Y.Z` tag and GitHub Release
-- npm publish workflow is triggered by that tag and publishes `react-virtualized-diff` automatically
-
-Version bump rules (SemVer):
-
-- `fix:`/`chore:` and similar => patch (`v0.1.x` -> `v0.1.x+1`)
-- `feat:` => minor (`v0.1.x` -> `v0.2.0`)
-- `feat!:` or `BREAKING CHANGE:` => major (`v0.x.x` -> `v1.0.0`)
-
 ## Future plan
 
 ### Near-term roadmap
@@ -148,7 +133,7 @@ Version bump rules (SemVer):
 - [ ] Dark/light theme presets and design tokens
 - [ ] SSR usage guide (Next.js / Remix examples)
 - [ ] More real-world examples (JSON, logs, markdown, code)
-- [x] CI release automation + semantic versioning workflow
+- [ ] CI release automation + semantic versioning workflow
 - [ ] Contribution guide and issue templates
 - [ ] International docs beyond English/Chinese
 
