@@ -1,6 +1,6 @@
 {
   "name": "react-virtualized-diff",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "High-performance React diff viewer for large files",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
