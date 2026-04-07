@@ -118,7 +118,7 @@ Output files:
 - `benchmark-results/results.json`
 - `benchmark-results/results.md`
 
-➡️ See detailed benchmark table: [benchmark-results/results.md](./benchmark-results/results.md)
+➡️ See detailed benchmark table: [benchmark-results/results.md](https://github.com/Zhang-JiahangH/virtualized-diff-viewer/blob/main/benchmark-results/results.md)
 
 ## Monorepo structure
 
@@ -151,7 +151,7 @@ To ensure npm users always see correct documentation:
 
 ## Release log
 
-See [CHANGELOG.md](https://github.com/Zhang-JiahangH/virtualized-diff-viewer/blob/main/benchmark-results/results.md) for tracked releases and supported capabilities.
+See [CHANGELOG.md](https://github.com/Zhang-JiahangH/virtualized-diff-viewer/blob/main/CHANGELOG.md) for tracked releases and supported capabilities.
 
 ---
 
