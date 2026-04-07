@@ -7,6 +7,7 @@ const libs = ['virtualized-diff-viewer', 'react-diff-viewer', 'react-diff-view']
 const sizes = [1000, 10000, 50000, 100000];
 const port = 4174;
 const baseUrl = `http://127.0.0.1:${port}`;
+const perCaseTimeoutMs = 60000;
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -32,15 +33,19 @@ function formatBytes(bytes) {
 }
 
 function toMarkdown(results) {
-  const header = '| Library | Lines | Initial Render (ms) | FPS | Memory |';
-  const sep = '| --- | ---: | ---: | ---: | ---: |';
+  const header = '| Library | Lines | Status | Initial Render (ms) | FPS | Memory | Note |';
+  const sep = '| --- | ---: | --- | ---: | ---: | ---: | --- |';
   const rows = results.map((item) => {
-    return `| ${item.lib} | ${item.lines.toLocaleString()} | ${item.initialRenderTimeMs.toFixed(2)} | ${item.averageFps.toFixed(2)} | ${formatBytes(item.memoryBytes)} |`;
+    const renderTime = item.initialRenderTimeMs == null ? 'N/A' : item.initialRenderTimeMs.toFixed(2);
+    const fps = item.averageFps == null ? 'N/A' : item.averageFps.toFixed(2);
+    return `| ${item.lib} | ${item.lines.toLocaleString()} | ${item.status} | ${renderTime} | ${fps} | ${formatBytes(item.memoryBytes)} | ${item.note ?? ''} |`;
   });
   return [
     '# Benchmark Results',
     '',
     `Generated at: ${new Date().toISOString()}`,
+    '',
+    `Per-case timeout: ${perCaseTimeoutMs} ms`,
     '',
     '> Memory usage comes from `performance.memory.usedJSHeapSize` and is only available in Chromium-based browsers.',
     '',
@@ -93,13 +98,35 @@ try {
     for (const lines of sizes) {
       const url = `${baseUrl}/?lib=${encodeURIComponent(lib)}&lines=${lines}`;
       console.log(`Running benchmark: ${lib} @ ${lines.toLocaleString()} lines`);
+
       await page.goto(url, { waitUntil: 'networkidle' });
-      await page.waitForFunction(() => window.__BENCHMARK_DONE__ === true, { timeout: 180000 });
-      const result = await page.evaluate(() => window.__BENCHMARK_RESULT__);
-      if (!result) {
-        throw new Error(`No benchmark result for ${lib} ${lines}`);
+
+      try {
+        await page.waitForFunction(() => window.__BENCHMARK_DONE__ === true, { timeout: perCaseTimeoutMs });
+        const result = await page.evaluate(() => window.__BENCHMARK_RESULT__);
+        if (!result) {
+          throw new Error(`No benchmark result for ${lib} ${lines}`);
+        }
+        results.push({ ...result, status: 'ok', note: null });
+      } catch (error) {
+        if (error instanceof Error && error.name === 'TimeoutError') {
+          const note = `Did not finish within ${perCaseTimeoutMs} ms`;
+          console.warn(`Timeout: ${lib} @ ${lines.toLocaleString()} lines. ${note}`);
+          results.push({
+            lib,
+            lines,
+            initialRenderTimeMs: null,
+            averageFps: null,
+            memoryBytes: null,
+            userAgent: await page.evaluate(() => navigator.userAgent),
+            status: 'timeout',
+            note,
+          });
+          continue;
+        }
+
+        throw error;
       }
-      results.push(result);
     }
   }
 
@@ -110,7 +137,8 @@ try {
   writeFileSync(resolve(outDir, 'results.json'), `${JSON.stringify(results, null, 2)}\n`, 'utf8');
   writeFileSync(resolve(outDir, 'results.md'), `${toMarkdown(results)}\n`, 'utf8');
 
-  console.log(`Benchmark complete. Wrote ${results.length} records to benchmark-results/.`);
+  const timeoutCount = results.filter((item) => item.status === 'timeout').length;
+  console.log(`Benchmark complete. Wrote ${results.length} records to benchmark-results/. Timeouts: ${timeoutCount}.`);
 } finally {
   devServer.kill('SIGTERM');
 }

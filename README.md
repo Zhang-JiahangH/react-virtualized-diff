@@ -95,6 +95,7 @@ Metrics collected for each dataset size (`1k / 10k / 50k / 100k` lines):
 - FPS (average during auto-scroll)
 - Initial render time (ms)
 - Memory usage (`usedJSHeapSize` in Chromium)
+- Per benchmark case timeout: `60000 ms` (timeout cases are recorded in results instead of failing the run)
 
 Run:
 
