@@ -82,6 +82,38 @@ export function Example() {
 
 ---
 
+## Benchmark suite
+
+A runnable benchmark harness is included to compare:
+
+- `react-virtualized-diff` (this project)
+- `react-diff-viewer`
+- `react-diff-viewer-continued`
+- `react-diff-view`
+
+Metrics collected for each dataset size (`1k / 10k / 50k / 100k` lines):
+
+- FPS (average during auto-scroll)
+- Initial render time (ms)
+- Memory usage (`usedJSHeapSize` in Chromium)
+- Per benchmark case timeout: `60000 ms` (timeout cases are recorded in results instead of failing the run)
+
+Run:
+
+```bash
+pnpm install
+pnpm benchmark
+```
+
+> If Playwright Chromium is missing, the script will auto-run `pnpm exec playwright install chromium` once.
+
+> `react-diff-viewer-continued` is optional in the benchmark app. If missing locally, benchmark falls back to `react-diff-viewer` for that case.
+
+Output files:
+
+- `benchmark-results/results.json`
+- `benchmark-results/results.md`
+
 ## Monorepo structure
 
 ```text

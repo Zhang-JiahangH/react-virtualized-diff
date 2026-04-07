@@ -7,10 +7,14 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "benchmark": "node ./scripts/run-benchmark.mjs"
   },
   "volta": {
     "node": "20.11.1",
     "pnpm": "10.0.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.54.2"
   }
 }
