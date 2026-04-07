@@ -1,4 +1,4 @@
-# virtualized-diff-viewer
+# react-virtualized-diff
 
 一个面向**超大文本文件**场景的高性能 React 差异对比组件（虚拟滚动渲染）。
 
@@ -12,7 +12,7 @@
 
 很多 diff 组件在小文件场景表现不错，但面对数万行甚至十万行文本时，渲染和交互会明显变慢。
 
-`virtualized-diff-viewer` 的目标是：
+`react-virtualized-diff` 的目标是：
 
 - **性能优先**：通过虚拟列表减少 DOM 压力
 - **可读性优先**：清晰的左右对比视图
