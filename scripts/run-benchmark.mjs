@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -51,6 +51,32 @@ function toMarkdown(results) {
   ].join('\n');
 }
 
+function installPlaywrightBrowser() {
+  console.log('Playwright browser is missing, installing Chromium...');
+  const install = spawnSync('pnpm', ['exec', 'playwright', 'install', 'chromium'], {
+    stdio: 'inherit',
+    env: process.env,
+  });
+
+  if (install.status !== 0) {
+    throw new Error('Failed to install Playwright Chromium. Please run `pnpm exec playwright install chromium`.');
+  }
+}
+
+async function launchBrowserWithAutoInstall() {
+  try {
+    return await chromium.launch({ headless: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("Executable doesn't exist")) {
+      throw error;
+    }
+
+    installPlaywrightBrowser();
+    return chromium.launch({ headless: true });
+  }
+}
+
 const devServer = spawn('pnpm', ['--filter', 'benchmark-app', 'dev'], {
   stdio: 'inherit',
   env: { ...process.env, CI: '1' },
@@ -58,7 +84,7 @@ const devServer = spawn('pnpm', ['--filter', 'benchmark-app', 'dev'], {
 
 try {
   await waitForServer();
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowserWithAutoInstall();
   const context = await browser.newContext();
   const page = await context.newPage();
   const results = [];

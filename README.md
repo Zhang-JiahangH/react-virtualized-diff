@@ -103,6 +103,8 @@ pnpm install
 pnpm benchmark
 ```
 
+> If Playwright Chromium is missing, the script will auto-run `pnpm exec playwright install chromium` once.
+
 Output files:
 
 - `benchmark-results/results.json`
