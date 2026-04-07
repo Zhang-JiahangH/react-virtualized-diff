@@ -107,6 +107,8 @@ pnpm benchmark
 
 > If Playwright Chromium is missing, the script will auto-run `pnpm exec playwright install chromium` once.
 
+> `react-diff-viewer-continued` is optional in the benchmark app. If missing locally, benchmark falls back to `react-diff-viewer` for that case.
+
 Output files:
 
 - `benchmark-results/results.json`

@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import ReactDiffViewer from 'react-diff-viewer';
-import ReactDiffViewerContinued from 'react-diff-viewer-continued';
 import { Diff, Hunk, parseDiff } from 'react-diff-view';
 import 'react-diff-view/style/index.css';
 import { DiffViewer } from 'react-virtualized-diff';
@@ -23,12 +22,23 @@ type BenchmarkResult = {
   userAgent: string;
 };
 
+type DiffViewerLikeProps = {
+  oldValue: string;
+  newValue: string;
+  splitView: boolean;
+  showDiffOnly: boolean;
+};
+
+type DiffViewerLikeComponent = React.ComponentType<DiffViewerLikeProps>;
+
 declare global {
   interface Window {
     __BENCHMARK_DONE__?: boolean;
     __BENCHMARK_RESULT__?: BenchmarkResult;
   }
 }
+
+const CONTINUED_PKG = 'react-diff-viewer-continued';
 
 const defaultParams: BenchmarkParams = {
   lib: 'virtualized-diff-viewer',
@@ -97,6 +107,27 @@ function App() {
   const params = React.useMemo(parseParams, []);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [payload] = React.useState(() => generateTexts(params.lines));
+  const [continuedViewer, setContinuedViewer] = React.useState<DiffViewerLikeComponent>(() => ReactDiffViewer);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    import(/* @vite-ignore */ CONTINUED_PKG)
+      .then((mod: unknown) => {
+        if (!mounted) return;
+        const loaded = ((mod as { default?: DiffViewerLikeComponent }).default ?? mod) as DiffViewerLikeComponent;
+        if (loaded) {
+          setContinuedViewer(() => loaded);
+        }
+      })
+      .catch(() => {
+        console.warn(`[benchmark] Optional dependency not found: ${CONTINUED_PKG}. Falling back to react-diff-viewer.`);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   React.useEffect(() => {
     const markDone = async () => {
@@ -158,8 +189,9 @@ function App() {
       />
     );
   } else if (params.lib === 'react-diff-viewer-continued') {
+    const ContinuedViewer = continuedViewer;
     viewer = (
-      <ReactDiffViewerContinued
+      <ContinuedViewer
         oldValue={payload.oldText}
         newValue={payload.newText}
         splitView
