@@ -98,6 +98,12 @@ Metrics collected for each dataset size (`1k / 10k / 50k / 100k` lines):
 - Memory usage (`usedJSHeapSize` in Chromium)
 - Per benchmark case timeout: `60000 ms` (timeout cases are recorded in results instead of failing the run)
 
+Quick result highlights (from the latest run):
+
+- At **10k lines**, `react-virtualized-diff` keeps ~**60 FPS**, with **187.2 ms** initial render and **9.5 MB** memory.
+- At **50k/100k lines**, `react-diff-viewer` and `react-diff-viewer-continued` hit timeout, while this project finishes both cases.
+- At **100k lines**, this project uses **141.1 MB** memory vs `react-diff-view` at **1297.0 MB** (~9.2x lower), and keeps **60.4 FPS** vs **5.6 FPS**.
+
 Run:
 
 ```bash
@@ -113,6 +119,8 @@ Output files:
 
 - `benchmark-results/results.json`
 - `benchmark-results/results.md`
+
+➡️ See detailed benchmark table: [benchmark-results/results.md](./benchmark-results/results.md)
 
 ## Monorepo structure
 

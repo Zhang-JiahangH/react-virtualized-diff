@@ -79,6 +79,32 @@ export function Example() {
 
 ---
 
+## Benchmark（性能基准）
+
+我们提供了可运行的 benchmark，对比以下组件：
+
+- `react-virtualized-diff`（本项目）
+- `react-diff-viewer`
+- `react-diff-viewer-continued`
+- `react-diff-view`
+
+最新结果亮点：
+
+- **10k 行**：本项目保持约 **60 FPS**，首屏渲染 **187.2 ms**，内存 **9.5 MB**。
+- **50k / 100k 行**：`react-diff-viewer` 与 `react-diff-viewer-continued` 在 `60000 ms` 超时限制内未完成。
+- **100k 行**：本项目内存 **141.1 MB**，而 `react-diff-view` 为 **1297.0 MB**（约 **9.2 倍**差距）；FPS 分别为 **60.4 vs 5.6**。
+
+运行方式：
+
+```bash
+pnpm install
+pnpm benchmark
+```
+
+详细结果请查看：[`benchmark-results/results.md`](./benchmark-results/results.md)
+
+---
+
 ## 仓库结构
 
 ```text
