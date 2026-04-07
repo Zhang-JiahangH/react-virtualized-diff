@@ -3,7 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const libs = ['virtualized-diff-viewer', 'react-diff-viewer', 'react-diff-view'];
+const libs = ['virtualized-diff-viewer', 'react-diff-viewer', 'react-diff-viewer-continued', 'react-diff-view'];
 const sizes = [1000, 10000, 50000, 100000];
 const port = 4174;
 const baseUrl = `http://127.0.0.1:${port}`;

@@ -88,6 +88,7 @@ A runnable benchmark harness is included to compare:
 
 - `react-virtualized-diff` (this project)
 - `react-diff-viewer`
+- `react-diff-viewer-continued`
 - `react-diff-view`
 
 Metrics collected for each dataset size (`1k / 10k / 50k / 100k` lines):

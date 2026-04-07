@@ -1,11 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import ReactDiffViewer from 'react-diff-viewer';
+import ReactDiffViewerContinued from 'react-diff-viewer-continued';
 import { Diff, Hunk, parseDiff } from 'react-diff-view';
 import 'react-diff-view/style/index.css';
 import { DiffViewer } from 'react-virtualized-diff';
 
-type LibraryName = 'virtualized-diff-viewer' | 'react-diff-viewer' | 'react-diff-view';
+type LibraryName = 'virtualized-diff-viewer' | 'react-diff-viewer' | 'react-diff-viewer-continued' | 'react-diff-view';
 
 type BenchmarkParams = {
   lib: LibraryName;
@@ -42,7 +43,7 @@ function parseParams(): BenchmarkParams {
   const height = Number(params.get('height') ?? defaultParams.height);
 
   const normalizedLib: LibraryName =
-    lib === 'react-diff-view' || lib === 'react-diff-viewer' || lib === 'virtualized-diff-viewer'
+    lib === 'react-diff-view' || lib === 'react-diff-viewer' || lib === 'react-diff-viewer-continued' || lib === 'virtualized-diff-viewer'
       ? lib
       : defaultParams.lib;
 
@@ -150,6 +151,15 @@ function App() {
   } else if (params.lib === 'react-diff-viewer') {
     viewer = (
       <ReactDiffViewer
+        oldValue={payload.oldText}
+        newValue={payload.newText}
+        splitView
+        showDiffOnly={false}
+      />
+    );
+  } else if (params.lib === 'react-diff-viewer-continued') {
+    viewer = (
+      <ReactDiffViewerContinued
         oldValue={payload.oldText}
         newValue={payload.newText}
         splitView

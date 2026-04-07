@@ -16,7 +16,8 @@
     "react-diff-view": "^3.2.2",
     "react-diff-viewer": "^3.1.1",
     "react-dom": "^18.3.1",
-    "react-virtualized-diff": "workspace:*"
+    "react-virtualized-diff": "workspace:*",
+    "react-diff-viewer-continued": "^3.2.6"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
