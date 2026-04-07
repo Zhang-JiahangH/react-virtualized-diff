@@ -1,51 +1,53 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import { DiffViewer } from 'react-virtualized-diff';
+
+type LibraryKey = 'ours' | 'reactDiffViewer' | 'reactDiffView';
+
+type LibraryResult = {
+  fps: number | null;
+  initialRenderMs: number | null;
+  memoryMB: number | null;
+  status: 'idle' | 'running' | 'done' | 'error' | 'unavailable';
+  message?: string;
+};
 
 type BenchmarkRow = {
   size: string;
-  fps: {
-    ours: number;
-    reactDiffViewer: number;
-    reactDiffView: number;
-  };
-  initialRenderMs: {
-    ours: number;
-    reactDiffViewer: number;
-    reactDiffView: number;
-  };
-  memoryMB: {
-    ours: number;
-    reactDiffViewer: number;
-    reactDiffView: number;
-  };
+  lines: number;
+  results: Record<LibraryKey, LibraryResult>;
 };
 
-const benchmarkRows: BenchmarkRow[] = [
-  {
-    size: '1k lines',
-    fps: { ours: 60, reactDiffViewer: 48, reactDiffView: 52 },
-    initialRenderMs: { ours: 18, reactDiffViewer: 85, reactDiffView: 60 },
-    memoryMB: { ours: 42, reactDiffViewer: 68, reactDiffView: 57 },
-  },
-  {
-    size: '10k lines',
-    fps: { ours: 58, reactDiffViewer: 14, reactDiffView: 20 },
-    initialRenderMs: { ours: 34, reactDiffViewer: 620, reactDiffView: 410 },
-    memoryMB: { ours: 85, reactDiffViewer: 290, reactDiffView: 210 },
-  },
-  {
-    size: '50k lines',
-    fps: { ours: 46, reactDiffViewer: 3, reactDiffView: 6 },
-    initialRenderMs: { ours: 68, reactDiffViewer: 1450, reactDiffView: 760 },
-    memoryMB: { ours: 172, reactDiffViewer: 760, reactDiffView: 430 },
-  },
-  {
-    size: '100k lines',
-    fps: { ours: 41, reactDiffViewer: 1, reactDiffView: 3 },
-    initialRenderMs: { ours: 110, reactDiffViewer: 3100, reactDiffView: 1500 },
-    memoryMB: { ours: 330, reactDiffViewer: 1400, reactDiffView: 860 },
-  },
-];
+type DiffSample = {
+  original: string;
+  modified: string;
+  unified: string;
+};
+
+type BenchmarkAdapter = {
+  name: string;
+  render: (sample: DiffSample) => React.ReactElement;
+};
+
+const BENCHMARK_SIZES = [1000, 10000, 50000, 100000];
+
+const initialResult = (): LibraryResult => ({
+  fps: null,
+  initialRenderMs: null,
+  memoryMB: null,
+  status: 'idle',
+});
+
+const makeInitialRows = (): BenchmarkRow[] =>
+  BENCHMARK_SIZES.map((lines) => ({
+    size: `${Math.floor(lines / 1000)}k lines`,
+    lines,
+    results: {
+      ours: initialResult(),
+      reactDiffViewer: initialResult(),
+      reactDiffView: initialResult(),
+    },
+  }));
 
 const original = `import React from 'react';
 
@@ -100,33 +102,234 @@ function HomePage(): React.JSX.Element {
   );
 }
 
+function getHeapMB(): number | null {
+  type PerfWithMemory = Performance & {
+    memory?: {
+      usedJSHeapSize: number;
+    };
+  };
+
+  const memory = (performance as PerfWithMemory).memory;
+  if (!memory?.usedJSHeapSize) {
+    return null;
+  }
+  return memory.usedJSHeapSize / 1024 / 1024;
+}
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+async function measureFPS(durationMs = 1000): Promise<number> {
+  let frames = 0;
+  const start = performance.now();
+
+  return new Promise((resolve) => {
+    const tick = (): void => {
+      frames += 1;
+      const now = performance.now();
+      if (now - start >= durationMs) {
+        const fps = frames / ((now - start) / 1000);
+        resolve(Number(fps.toFixed(1)));
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
+  });
+}
+
+function createSample(lines: number): DiffSample {
+  const oldLines: string[] = [];
+  const newLines: string[] = [];
+  const hunkLines: string[] = [];
+
+  for (let i = 1; i <= lines; i += 1) {
+    const oldLine = `const line_${i} = ${i};`;
+    const newLine = i % 10 === 0 ? `const line_${i} = ${i + 1};` : oldLine;
+    oldLines.push(oldLine);
+    newLines.push(newLine);
+
+    if (oldLine === newLine) {
+      hunkLines.push(` ${oldLine}`);
+    } else {
+      hunkLines.push(`-${oldLine}`);
+      hunkLines.push(`+${newLine}`);
+    }
+  }
+
+  const unified = [
+    '--- a/sample.ts',
+    '+++ b/sample.ts',
+    `@@ -1,${lines} +1,${lines} @@`,
+    ...hunkLines,
+  ].join('\n');
+
+  return {
+    original: oldLines.join('\n'),
+    modified: newLines.join('\n'),
+    unified,
+  };
+}
+
+async function loadFromEsm(url: string): Promise<Record<string, unknown>> {
+  return import(/* @vite-ignore */ url) as Promise<Record<string, unknown>>;
+}
+
+async function getAdapters(): Promise<Record<LibraryKey, BenchmarkAdapter | null>> {
+  const ours: BenchmarkAdapter = {
+    name: 'virtualized-diff',
+    render: (sample) => (
+      <DiffViewer
+        original={sample.original}
+        modified={sample.modified}
+        contextLines={2}
+        height={600}
+      />
+    ),
+  };
+
+  let reactDiffViewerAdapter: BenchmarkAdapter | null = null;
+  try {
+    const mod = await loadFromEsm('https://esm.sh/react-diff-viewer@3.1.1?bundle');
+    const ReactDiffViewer = (mod.default ?? mod.ReactDiffViewer) as React.ComponentType<{
+      oldValue: string;
+      newValue: string;
+      splitView?: boolean;
+    }>;
+
+    reactDiffViewerAdapter = {
+      name: 'react-diff-viewer',
+      render: (sample) => (
+        <ReactDiffViewer
+          oldValue={sample.original}
+          newValue={sample.modified}
+          splitView
+        />
+      ),
+    };
+  } catch {
+    reactDiffViewerAdapter = null;
+  }
+
+  let reactDiffViewAdapter: BenchmarkAdapter | null = null;
+  try {
+    const mod = await loadFromEsm('https://esm.sh/react-diff-view@3.2.0?bundle');
+
+    const Diff = mod.Diff as React.ComponentType<Record<string, unknown>>;
+    const Hunk = mod.Hunk as React.ComponentType<Record<string, unknown>>;
+    const parseDiff = mod.parseDiff as ((text: string) => Array<Record<string, unknown>>) | undefined;
+
+    if (Diff && Hunk && parseDiff) {
+      reactDiffViewAdapter = {
+        name: 'react-diff-view',
+        render: (sample) => {
+          const files = parseDiff(sample.unified);
+          const file = files[0] as {
+            hunks: Array<{ content: string }>;
+            type: string;
+          };
+
+          return (
+            <Diff viewType="split" diffType={file.type} hunks={file.hunks}>
+              {(hunks: Array<{ content: string }>) =>
+                hunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)
+              }
+            </Diff>
+          );
+        },
+      };
+    }
+  } catch {
+    reactDiffViewAdapter = null;
+  }
+
+  return {
+    ours,
+    reactDiffViewer: reactDiffViewerAdapter,
+    reactDiffView: reactDiffViewAdapter,
+  };
+}
+
+async function measureAdapter(adapter: BenchmarkAdapter, sample: DiffSample): Promise<LibraryResult> {
+  const mountNode = document.createElement('div');
+  mountNode.style.position = 'fixed';
+  mountNode.style.left = '-200vw';
+  mountNode.style.top = '0';
+  mountNode.style.width = '1280px';
+  mountNode.style.height = '720px';
+  mountNode.style.overflow = 'auto';
+  document.body.appendChild(mountNode);
+
+  const beforeHeap = getHeapMB();
+  const start = performance.now();
+
+  try {
+    const root = createRoot(mountNode);
+    root.render(adapter.render(sample));
+
+    await nextFrame();
+    await nextFrame();
+
+    const initialRenderMs = Number((performance.now() - start).toFixed(1));
+    const fps = await measureFPS(1000);
+    const afterHeap = getHeapMB();
+
+    root.unmount();
+    mountNode.remove();
+
+    return {
+      fps,
+      initialRenderMs,
+      memoryMB:
+        beforeHeap === null || afterHeap === null
+          ? null
+          : Number(Math.max(afterHeap - beforeHeap, 0).toFixed(1)),
+      status: 'done',
+    };
+  } catch (error) {
+    mountNode.remove();
+
+    return {
+      fps: null,
+      initialRenderMs: null,
+      memoryMB: null,
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Unknown render error',
+    };
+  }
+}
+
+function formatMetric(value: number | null, unit = ''): string {
+  if (value === null) {
+    return 'N/A';
+  }
+  return `${value}${unit}`;
+}
+
 function MetricBars({
   title,
   values,
-  reverse = false,
 }: {
   title: string;
-  values: { label: string; value: number }[];
-  reverse?: boolean;
+  values: { label: string; value: number | null }[];
 }): React.JSX.Element {
-  const max = Math.max(...values.map((item) => item.value));
+  const numericValues = values.map((item) => item.value ?? 0);
+  const max = Math.max(...numericValues, 1);
 
   return (
     <div className="chart-card">
       <h3>{title}</h3>
       {values.map((item) => {
-        const ratio = max === 0 ? 0 : item.value / max;
-        const visualRatio = reverse ? 1 - ratio * 0.9 : ratio;
+        const width = item.value === null ? 0 : (item.value / max) * 100;
         return (
           <div key={item.label} className="bar-row">
             <span>{item.label}</span>
             <div className="bar-track">
-              <div
-                className="bar-fill"
-                style={{ width: `${Math.max(visualRatio * 100, 8)}%` }}
-              />
+              <div className="bar-fill" style={{ width: `${Math.max(width, 5)}%` }} />
             </div>
-            <strong>{item.value}</strong>
+            <strong>{item.value === null ? 'N/A' : item.value}</strong>
           </div>
         );
       })}
@@ -135,18 +338,93 @@ function MetricBars({
 }
 
 function BenchmarkPage(): React.JSX.Element {
-  const row50k = benchmarkRows.find((row) => row.size === '50k lines');
-  const speedup50k = row50k
-    ? (row50k.initialRenderMs.reactDiffViewer / row50k.initialRenderMs.ours).toFixed(1)
-    : '0';
+  const [rows, setRows] = useState<BenchmarkRow[]>(() => makeInitialRows());
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState('点击 Run benchmark 之后才会产生数据（不再预填捏造值）。');
+
+  const rowsBySize = useMemo(() => new Map(rows.map((row) => [row.lines, row])), [rows]);
+
+  async function runBenchmark(): Promise<void> {
+    setRunning(true);
+    setRows(makeInitialRows());
+    setProgress('Loading benchmark adapters...');
+
+    const adapters = await getAdapters();
+    const keys: LibraryKey[] = ['ours', 'reactDiffViewer', 'reactDiffView'];
+
+    for (const lines of BENCHMARK_SIZES) {
+      const sample = createSample(lines);
+
+      for (const key of keys) {
+        const adapter = adapters[key];
+
+        setRows((prev) =>
+          prev.map((row) =>
+            row.lines !== lines
+              ? row
+              : {
+                  ...row,
+                  results: {
+                    ...row.results,
+                    [key]: {
+                      ...row.results[key],
+                      status: adapter ? 'running' : 'unavailable',
+                      message: adapter ? undefined : 'Adapter unavailable (CDN load failed)',
+                    },
+                  },
+                },
+          ),
+        );
+
+        if (!adapter) {
+          continue;
+        }
+
+        setProgress(`Running ${adapter.name} @ ${lines} lines...`);
+        const result = await measureAdapter(adapter, sample);
+
+        setRows((prev) =>
+          prev.map((row) =>
+            row.lines !== lines
+              ? row
+              : {
+                  ...row,
+                  results: {
+                    ...row.results,
+                    [key]: result,
+                  },
+                },
+          ),
+        );
+      }
+    }
+
+    setProgress('Benchmark done.');
+    setRunning(false);
+  }
+
+  const row50k = rowsBySize.get(50000);
+  const ours50k = row50k?.results.ours.initialRenderMs ?? null;
+  const viewer50k = row50k?.results.reactDiffViewer.initialRenderMs ?? null;
+  const speedup50k =
+    ours50k && viewer50k ? Number((viewer50k / ours50k).toFixed(1)) : null;
+
+  const row100k = rowsBySize.get(100000);
 
   return (
     <div className="page benchmark-page">
       <h1>Benchmark</h1>
       <p>
-        数据维度：1k / 10k / 50k / 100k lines diff。对比对象：react-diff-viewer,
-        react-diff-view。
+        数据维度：1k / 10k / 50k / 100k lines diff；指标：FPS / initial render time /
+        memory usage；对比对象：react-diff-viewer / react-diff-view。
       </p>
+
+      <div className="benchmark-actions">
+        <button type="button" onClick={() => void runBenchmark()} disabled={running}>
+          {running ? 'Benchmarking...' : 'Run benchmark'}
+        </button>
+        <span>{progress}</span>
+      </div>
 
       <table className="benchmark-table">
         <thead>
@@ -158,19 +436,23 @@ function BenchmarkPage(): React.JSX.Element {
           </tr>
         </thead>
         <tbody>
-          {benchmarkRows.map((row) => (
+          {rows.map((row) => (
             <tr key={row.size}>
               <td>{row.size}</td>
               <td>
-                {row.fps.ours} / {row.fps.reactDiffViewer} / {row.fps.reactDiffView}
+                {formatMetric(row.results.ours.fps)} /{' '}
+                {formatMetric(row.results.reactDiffViewer.fps)} /{' '}
+                {formatMetric(row.results.reactDiffView.fps)}
               </td>
               <td>
-                {row.initialRenderMs.ours} / {row.initialRenderMs.reactDiffViewer} /{' '}
-                {row.initialRenderMs.reactDiffView}
+                {formatMetric(row.results.ours.initialRenderMs, 'ms')} /{' '}
+                {formatMetric(row.results.reactDiffViewer.initialRenderMs, 'ms')} /{' '}
+                {formatMetric(row.results.reactDiffView.initialRenderMs, 'ms')}
               </td>
               <td>
-                {row.memoryMB.ours} / {row.memoryMB.reactDiffViewer} /{' '}
-                {row.memoryMB.reactDiffView}
+                {formatMetric(row.results.ours.memoryMB, 'MB')} /{' '}
+                {formatMetric(row.results.reactDiffViewer.memoryMB, 'MB')} /{' '}
+                {formatMetric(row.results.reactDiffView.memoryMB, 'MB')}
               </td>
             </tr>
           ))}
@@ -181,30 +463,40 @@ function BenchmarkPage(): React.JSX.Element {
         <MetricBars
           title="100k lines FPS"
           values={[
-            { label: 'virtualized-diff', value: 41 },
-            { label: 'react-diff-viewer', value: 1 },
-            { label: 'react-diff-view', value: 3 },
+            { label: 'virtualized-diff', value: row100k?.results.ours.fps ?? null },
+            {
+              label: 'react-diff-viewer',
+              value: row100k?.results.reactDiffViewer.fps ?? null,
+            },
+            { label: 'react-diff-view', value: row100k?.results.reactDiffView.fps ?? null },
           ]}
         />
         <MetricBars
-          title="100k lines render time (ms, lower is better)"
+          title="100k lines memory MB"
           values={[
-            { label: 'virtualized-diff', value: 110 },
-            { label: 'react-diff-viewer', value: 3100 },
-            { label: 'react-diff-view', value: 1500 },
+            { label: 'virtualized-diff', value: row100k?.results.ours.memoryMB ?? null },
+            {
+              label: 'react-diff-viewer',
+              value: row100k?.results.reactDiffViewer.memoryMB ?? null,
+            },
+            {
+              label: 'react-diff-view',
+              value: row100k?.results.reactDiffView.memoryMB ?? null,
+            },
           ]}
-          reverse
         />
       </div>
 
       <p className="conclusion">
-        结论：Rendering 50k lines, virtualized-diff is about {speedup50k}x faster
-        than react-diff-viewer.
+        结论：
+        {speedup50k
+          ? `Rendering 50k lines: ${speedup50k}x faster than react-diff-viewer (initial render time).`
+          : '请先运行 benchmark，结论会基于实测结果自动生成。'}
       </p>
 
       <p className="note">
-        Push-limit 场景建议使用 100k+ lines diff 进行压测，GitHub 页面在超大变更下通常会明显卡顿，
-        但虚拟化渲染仍可维持可交互体验。
+        说明：本页不再写死数据，所有数值来自当前浏览器环境实测；若 CDN 无法加载第三方库，会显示
+        N/A。
       </p>
     </div>
   );
