@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.1.5] - 2026-04-08
+
+### Added
+
+- Added a migration-friendly compatibility layer for `react-diff-viewer` style props:
+  - `oldValue` / `newValue` aliases for `original` / `modified`
+  - `splitView` toggle for side-by-side vs unified rendering
+  - `showDiffOnly` + `extraLinesSurroundingDiff` mapped to collapse behavior
+- Added unified (inline) diff rendering mode in addition to split view.
+- Added `renderContent(line)` slot for custom syntax highlighting (e.g. Prism/Shiki integrations).
+- Added line interaction features:
+  - `onLineNumberClick` callbacks with stable line ids (`L-12`, `R-8`)
+  - `highlightLines` support including ranges
+  - `hideLineNumbers` support for compact embedded layouts
+- Added optional code fold message customization via `codeFoldMessageRenderer`.
+- Added imperative handle method `resetCodeBlocks()` for external fold reset.
+
+### Changed
+
+- Improved inline replacement visualization with word-level highlights and `disableWordDiff` control.
+- Expanded diff strategy selection through `compareMethod` (`CHARS`, `WORDS`, `WORDS_WITH_SPACE`, `LINES`, `TRIMMED_LINES`, `SENTENCES`, `CSS`).
+- Upgraded styling/theming extensibility with `styles` overrides and `useDarkTheme`.
+- Added review-style headers via `leftTitle` / `rightTitle` and line-number offset support via `linesOffset`.
+- Bumped workspace package versions from `0.1.4` to `0.1.5` for this release.
+
+
 ## [0.1.4] - 2026-04-07
 
 ### Added
