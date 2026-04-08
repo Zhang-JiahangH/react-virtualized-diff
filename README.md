@@ -7,7 +7,7 @@ High-performance React diff viewer for **large text/code files** with virtualize
 - 📊 Benchmark report: [benchmark-results/results.md](./benchmark-results/results.md)
 - 🇨🇳 中文文档: [README.zh-CN.md](./README.zh-CN.md)
 
-## Demo
+## Quick Demo View
 ![20260408-024125](https://github.com/user-attachments/assets/5345cbe4-04b1-4cfd-bcba-a68fcd7e82aa)
 
 ## Why react-virtualized-diff
